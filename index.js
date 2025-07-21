@@ -1,7 +1,7 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const OpenAI = require('openai');
+const express = require("express");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const OpenAI = require("openai");
 
 const app = express();
 app.use(bodyParser.json());
@@ -9,23 +9,33 @@ app.use(cors());
 
 // ✅ Initialize OpenAI client using new SDK syntax
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 // ✅ Health check route
-app.get('/', (req, res) => {
-  res.json({ status: '✅ Dignity Filter backend is running' });
+app.get("/", (req, res) => {
+  res.json({ status: "✅ Dignity Filter backend is running" });
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
 });
 
-
 // POST endpoint for evaluation
-app.post('/evaluate', async (req, res) => {
+app.post("/evaluate", async (req, res) => {
   const content = req.body.content;
+
+  // ✅ Webhook to receive Tally or Make.com submissions
+  app.post("/tally-webhook", (req, res) => {
+    console.log("📥 Received Tally submission:", req.body);
+
+    // Echo back what we received
+    res.status(200).json({
+      status: "ok",
+      received: req.body,
+    });
+  });
 
   const systemPrompt = `
   You are an AI applying the Dignity Filter to evaluate text. 
@@ -60,14 +70,13 @@ app.post('/evaluate', async (req, res) => {
   Be strict, consistent, and never leave flags or recommendations blank if a violation is detected.
   `;
 
-
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: "gpt-4o",
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: content }
-      ]
+        { role: "system", content: systemPrompt },
+        { role: "user", content: content },
+      ],
     });
 
     const resultText = response.choices[0].message.content.trim();
@@ -81,8 +90,8 @@ app.post('/evaluate', async (req, res) => {
 
     res.json(parsed);
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).send('Failed to evaluate.');
+    console.error("Error:", error);
+    res.status(500).send("Failed to evaluate.");
   }
 });
 
