@@ -12,30 +12,30 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✅ Health check route
+// ✅ Health check route (root)
 app.get("/", (req, res) => {
   res.json({ status: "✅ Dignity Filter backend is running" });
 });
 
-// Health check endpoint
+// ✅ Additional health endpoint
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
-// POST endpoint for evaluation
+// ✅ Webhook to receive Tally or Make.com submissions
+app.post("/tally-webhook", (req, res) => {
+  console.log("📥 Received Tally submission:", req.body);
+
+  // Echo back what we received
+  res.status(200).json({
+    status: "ok",
+    received: req.body,
+  });
+});
+
+// ✅ POST endpoint for evaluation
 app.post("/evaluate", async (req, res) => {
   const content = req.body.content;
-
-  // ✅ Webhook to receive Tally or Make.com submissions
-  app.post("/tally-webhook", (req, res) => {
-    console.log("📥 Received Tally submission:", req.body);
-
-    // Echo back what we received
-    res.status(200).json({
-      status: "ok",
-      received: req.body,
-    });
-  });
 
   const systemPrompt = `
   You are an AI applying the Dignity Filter to evaluate text. 
@@ -95,6 +95,6 @@ app.post("/evaluate", async (req, res) => {
   }
 });
 
-// Start server
+// ✅ Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
