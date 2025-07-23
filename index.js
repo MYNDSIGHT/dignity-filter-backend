@@ -21,42 +21,38 @@ app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
-// ✅ POST endpoint for evaluation (direct testing)
+// ✅ Direct evaluation route
 app.post("/evaluate", async (req, res) => {
   const content = req.body.content;
-
-  const systemPrompt = `
-  You are an AI applying the Dignity Filter to evaluate text. 
-  For each input, return a JSON with:
-  {
-    "overall_score": (average of the below),
-    "scores": {
-      "dignity": -2 to +2,
-      "inclusion": -2 to +2,
-      "autonomy": -2 to +2,
-      "unity": -2 to +2,
-      "empathy": -2 to +2
-    },
-    "flags": [list specific dignity violations],
-    "recommendations": [specific actions to improve]
+  if (!content || content.trim() === "") {
+    return res.status(400).json({ error: "No content provided" });
   }
 
-  Scoring rules:
-  -2 = strongly violates
-  -1 = somewhat violates
-  0 = neutral/unclear
-  +1 = somewhat supports
-  +2 = strongly supports
+  const systemPrompt = `
+You are an AI applying the Dignity Filter to evaluate text. 
+For each input, return a JSON with:
+{
+  "overall_score": (average of the below),
+  "scores": {
+    "dignity": -2 to +2,
+    "inclusion": -2 to +2,
+    "autonomy": -2 to +2,
+    "unity": -2 to +2,
+    "empathy": -2 to +2
+  },
+  "flags": [list specific dignity violations],
+  "recommendations": [specific actions to improve]
+}
 
-  Think step by step:
-  1. Analyze the text for each dimension.
-  2. Justify your score internally.
-  3. Output the JSON consistently.
+Scoring rules:
+-2 = strongly violates
+-1 = somewhat violates
+0 = neutral/unclear
++1 = somewhat supports
++2 = strongly supports
 
-  If the text claims positive ideals but contains harm, bias, or exclusion, reflect that in the scores and flags.
-
-  Be strict, consistent, and never leave flags or recommendations blank if a violation is detected.
-  `;
+Think step by step and output valid JSON.
+`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -71,62 +67,54 @@ app.post("/evaluate", async (req, res) => {
     let parsed;
     try {
       parsed = JSON.parse(resultText);
-    } catch (err) {
+    } catch {
       parsed = { raw: resultText };
     }
 
     res.json(parsed);
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error in /evaluate:", error);
     res.status(500).send("Failed to evaluate.");
   }
 });
 
-// ✅ Webhook: evaluate Tally submissions and return scorecard
+// ✅ Webhook route for Tally/Make.com
 app.post("/tally-webhook", async (req, res) => {
   try {
-    // 🔹 Pull the relevant text field from the Tally submission
-    // Adjust these keys to match your Make.com mapped fields
     const submittedText =
-      req.body.message ||
-      req.body.content ||
-      req.body.Submission ||
-      JSON.stringify(req.body);
+      req.body.message || req.body.content || req.body.Submission || "";
 
-    const systemPrompt = `
-    You are an AI applying the Dignity Filter to evaluate text. 
-    For each input, return a JSON with:
-    {
-      "overall_score": (average of the below),
-      "scores": {
-        "dignity": -2 to +2,
-        "inclusion": -2 to +2,
-        "autonomy": -2 to +2,
-        "unity": -2 to +2,
-        "empathy": -2 to +2
-      },
-      "flags": [list specific dignity violations],
-      "recommendations": [specific actions to improve]
+    if (!submittedText || submittedText.trim() === "") {
+      console.error("❌ No valid text field in payload:", req.body);
+      return res.status(400).json({ error: "No valid text provided." });
     }
 
-    Scoring rules:
-    -2 = strongly violates
-    -1 = somewhat violates
-    0 = neutral/unclear
-    +1 = somewhat supports
-    +2 = strongly supports
+    const systemPrompt = `
+You are an AI applying the Dignity Filter to evaluate text. 
+For each input, return a JSON with:
+{
+  "overall_score": (average of the below),
+  "scores": {
+    "dignity": -2 to +2,
+    "inclusion": -2 to +2,
+    "autonomy": -2 to +2,
+    "unity": -2 to +2,
+    "empathy": -2 to +2
+  },
+  "flags": [list specific dignity violations],
+  "recommendations": [specific actions to improve]
+}
 
-    Think step by step:
-    1. Analyze the text for each dimension.
-    2. Justify your score internally.
-    3. Output the JSON consistently.
+Scoring rules:
+-2 = strongly violates
+-1 = somewhat violates
+0 = neutral/unclear
++1 = somewhat supports
++2 = strongly supports
 
-    If the text claims positive ideals but contains harm, bias, or exclusion, reflect that in the scores and flags.
+Think step by step and output valid JSON.
+`;
 
-    Be strict, consistent, and never leave flags or recommendations blank if a violation is detected.
-    `;
-
-    // 🔹 Call OpenAI to evaluate
     const responseAI = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -139,11 +127,12 @@ app.post("/tally-webhook", async (req, res) => {
     let parsed;
     try {
       parsed = JSON.parse(resultText);
-    } catch (err) {
+    } catch {
       parsed = { raw: resultText };
     }
 
-    // ✅ Send scorecard back to Make.com
+    console.log("✅ Webhook scorecard:", parsed);
+
     res.status(200).json({
       status: "ok",
       scorecard: parsed,
@@ -157,4 +146,4 @@ app.post("/tally-webhook", async (req, res) => {
 
 // ✅ Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
