@@ -21,7 +21,7 @@ app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
-// ✅ Direct evaluation route
+// ✅ Direct evaluation route (for manual testing or API)
 app.post("/evaluate", async (req, res) => {
   const content = req.body.content;
   if (!content || content.trim() === "") {
@@ -71,9 +71,15 @@ Think step by step and output valid JSON.
       parsed = { raw: resultText };
     }
 
-    res.json(parsed);
+    console.log("✅ /evaluate result:", parsed);
+
+    res.status(200).json({
+      status: "ok",
+      scorecard: parsed,
+      original: req.body,
+    });
   } catch (error) {
-    console.error("Error in /evaluate:", error);
+    console.error("❌ Error in /evaluate:", error);
     res.status(500).send("Failed to evaluate.");
   }
 });
@@ -139,7 +145,7 @@ Think step by step and output valid JSON.
       original: req.body,
     });
   } catch (error) {
-    console.error("Error in /tally-webhook:", error);
+    console.error("❌ Error in /tally-webhook:", error);
     res.status(500).send("Failed to process submission.");
   }
 });
